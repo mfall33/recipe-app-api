@@ -1,6 +1,7 @@
 
 const mongoose = require('mongoose');
 const fs = require('fs');
+const { log } = require('console');
 const { IMAGE_FOLDER } = process.env;
 
 const RecipeSchema = new mongoose.Schema({
@@ -18,7 +19,11 @@ const RecipeSchema = new mongoose.Schema({
         type: Array,
         required: false,
         unique: false
-    }
+    },
+    user: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "User",
+    },
 });
 
 const removeImages = (images) => {
@@ -35,8 +40,9 @@ module.exports = Recipe;
 module.exports.addRecipe = function (req) {
 
     let recipe = new Recipe({
-        name: req.name,
-        duration: req.duration,
+        name: req.body.name,
+        duration: req.body.duration,
+        user: req.userId,
         images: []
     });
 
@@ -83,6 +89,21 @@ module.exports.getRecipes = function (req) {
     if (req.query.name) {
         query.name = setSearchField(req.query.name);
     }
+
+    return Recipe.find(query)
+        .sort({ name: 'ascending' });
+
+}
+
+module.exports.getMyRecipes = function (req) {
+
+    let query = {};
+
+    if (req.query.name) {
+        query.name = setSearchField(req.query.name);
+    }
+
+    query.user = req.userId;
 
     return Recipe.find(query)
         .sort({ name: 'ascending' });

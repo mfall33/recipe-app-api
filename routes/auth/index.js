@@ -28,5 +28,7 @@ module.exports = function (app) {
     ],
     AuthController.signin);
 
+  app.post("/auth/refreshtoken", AuthController.refreshToken);
+
   app.post("/auth/signout", AuthController.signout);
 };

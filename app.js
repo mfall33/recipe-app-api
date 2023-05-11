@@ -41,8 +41,7 @@ app.listen(PORT, () => {
     console.log(`Example app listening on port ${PORT}`);
 });
 
-// UTILs
-
+// Roles Seeder
 function initialize() {
     Role.find({}).estimatedDocumentCount()
         .then(count => {

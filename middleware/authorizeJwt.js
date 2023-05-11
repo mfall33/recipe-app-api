@@ -5,9 +5,19 @@ const Role = db.role;
 
 const { APP_SECRET_KEY } = process.env;
 
+const { TokenExpiredError } = jwt;
+
+const catchError = (err, res) => {
+    if (err instanceof TokenExpiredError) {
+        return res.status(401).send({ message: "Unauthorized! Access Token was expired!", err: err.expiredAt.toUTCString() });
+    }
+
+    return res.sendStatus(401).send({ message: "Unauthorized!" });
+}
+
 exports.verifyToken = (req, res, next) => {
-    console.log(33);
-    let token = req.session.token;
+
+    let token = req.headers['x-access-token'];
 
     if (!token) {
         return res.status(403).send({ message: "No token provided!" });
@@ -15,8 +25,9 @@ exports.verifyToken = (req, res, next) => {
 
     jwt.verify(token, APP_SECRET_KEY, (err, decoded) => {
         if (err) {
-            return res.status(401).send({ message: "Unauthorized!" });
+            return catchError(err, res);
         }
+        console.log("from middleware: " + decoded.id);
         req.userId = decoded.id;
         next();
     });

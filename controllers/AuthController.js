@@ -3,10 +3,9 @@ var jwt = require("jsonwebtoken");
 var bcrypt = require("bcryptjs");
 
 const db = require("../models");
-const User = db.user;
-const Role = db.role;
+const { user: User, role: Role, refreshToken: RefreshToken } = db;
 
-const { APP_SECRET_KEY } = process.env;
+const { APP_SECRET_KEY, JWT_EXPIRATION } = process.env;
 
 exports.signup = async (req, res) => {
 
@@ -56,7 +55,7 @@ exports.signup = async (req, res) => {
     }
 }
 
-exports.signin = (req, res) => {
+exports.signin = async (req, res) => {
 
     // using the regex below for insensitive case querying
     User.findOne({
@@ -67,7 +66,7 @@ exports.signin = (req, res) => {
     })
         .populate("roles", "-__v")
         .exec()
-        .then(user => {
+        .then(async user => {
 
             if (!user) {
                 return res.status(404).send({ message: "User Not found." });
@@ -79,12 +78,18 @@ exports.signin = (req, res) => {
             );
 
             if (!passwordIsValid) {
-                return res.status(401).send({ message: "Invalid Password!" });
+                return res.status(401).send({
+                    accessToken: null,
+                    message: "Invalid Password!"
+                });
             }
 
             var token = jwt.sign({ id: user.id }, APP_SECRET_KEY, {
-                expiresIn: 86400, // 24 hours
+                expiresIn: Number(JWT_EXPIRATION),
+                // expiresIn: 10
             });
+
+            let refreshToken = await RefreshToken.createToken(user);
 
             var authorities = [];
 
@@ -99,10 +104,51 @@ exports.signin = (req, res) => {
                 username: user.username,
                 email: user.email,
                 roles: authorities,
+                accessToken: token,
+                refreshToken: refreshToken,
             });
 
         })
         .catch(err => res.status(500).send({ message: err }))
+};
+
+exports.refreshToken = async (req, res) => {
+    const { refreshToken: requestToken } = req.body;
+
+    if (requestToken == null) {
+        return res.status(403).json({ message: "Refresh Token is required!" });
+    }
+
+    try {
+        let refreshToken = await RefreshToken.findOne({ token: requestToken });
+
+        if (!refreshToken) {
+            res.status(403).json({ message: "Refresh token is not in database!" });
+            return;
+        }
+
+        if (RefreshToken.verifyExpiration(refreshToken)) {
+            RefreshToken.findByIdAndRemove(refreshToken._id, { useFindAndModify: false }).exec();
+
+            res.status(403).json({
+                message: "Refresh token was expired. Please make a new signin request",
+            });
+            return;
+        }
+
+        let newAccessToken = jwt.sign({ id: refreshToken.user._id }, APP_SECRET_KEY, {
+            expiresIn: Number(JWT_EXPIRATION),
+        });
+
+        return res.status(200).json({
+            accessToken: newAccessToken,
+            refreshToken: refreshToken.token,
+        });
+        
+    } catch (err) {
+        console.log("ERR: " + err)
+        return res.status(500).send({ message: err });
+    }
 };
 
 exports.signout = async (req, res) => {

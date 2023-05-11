@@ -7,7 +7,15 @@ const { IMAGE_FOLDER } = process.env;
 
 const index = (req, res) => {
 
-    return Recipe.getRecipes(req, res)
+    return Recipe.getRecipes(req)
+        .then(recipes => res.json(recipes))
+        .catch(err => res.status(500).json(err));
+
+}
+
+const mine = (req, res) => {
+
+    return Recipe.getMyRecipes(req)
         .then(recipes => res.json(recipes))
         .catch(err => res.status(500).json(err));
 
@@ -23,7 +31,7 @@ const show = (req, res) => {
 
 const create = (req, res) => {
 
-    return Recipe.addRecipe(req.body)
+    return Recipe.addRecipe(req)
         .then(data => res.status(200).json(data))
         .catch(err => res.status(500).json("Failed to store recipe: " + err));
 
@@ -54,7 +62,9 @@ const imageUpload = (req, res) => {
             });
         } else {
 
+            
             let files = req.files.map(file => file.filename);
+            console.log("REQUEST: " + JSON.stringify(files))
 
             return Recipe.addImages(req.params.id, files)
                 .then(data => res.status(200).json(data))
@@ -79,6 +89,7 @@ const imageRemove = (req, res) => {
 }
 
 module.exports.index = index;
+module.exports.mine = mine;
 module.exports.show = show;
 module.exports.create = create;
 module.exports.update = update;
