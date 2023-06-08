@@ -1,4 +1,3 @@
-const { validationResult } = require('express-validator');
 var jwt = require("jsonwebtoken");
 var bcrypt = require("bcryptjs");
 
@@ -109,7 +108,10 @@ exports.signin = async (req, res) => {
             });
 
         })
-        .catch(err => res.status(500).send({ message: err }))
+        .catch(err => {
+            console.log("err: " + err)
+            res.status(500).send({ message: err })
+        })
 };
 
 exports.refreshToken = async (req, res) => {
@@ -144,7 +146,7 @@ exports.refreshToken = async (req, res) => {
             accessToken: newAccessToken,
             refreshToken: refreshToken.token,
         });
-        
+
     } catch (err) {
         console.log("ERR: " + err)
         return res.status(500).send({ message: err });

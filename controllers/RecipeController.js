@@ -1,14 +1,34 @@
 const fs = require('fs');
 
 const Recipe = require("../models/recipe");
-const { ImageUpload } = require("../helpers");
+const Like = require("../models/like");
 
+const { ImageUpload } = require("../helpers");
 const { IMAGE_FOLDER } = process.env;
 
 const index = (req, res) => {
 
-    return Recipe.getRecipes(req)
-        .then(recipes => res.json(recipes))
+    return Recipe.getRecipes(req).populate('likes')
+        .then(recipes => {
+
+            let filteredRecipes = []
+
+            recipes.map(recipe => {
+                const liked = recipe.likes.some(like => {
+
+                    console.log(String(like.user) + ' === ' + req.userId)
+                    return String(like.user) === req.userId
+                });
+                const recipeWithLiked = {
+                    ...recipe.toObject(),
+                    liked: liked
+                };
+                filteredRecipes.push(recipeWithLiked)
+            })
+
+            return res.json(filteredRecipes);
+
+        })
         .catch(err => res.status(500).json(err));
 
 }
@@ -24,8 +44,14 @@ const mine = (req, res) => {
 const show = (req, res) => {
 
     return Recipe.getRecipe(req.params.id)
-        .then(data => res.status(200).json(data))
-        .catch(err => res.status(500).json(err));
+        .then(recipe => {
+            if (!recipe) {
+                return res.status(404).json({ message: "Recipe not found" })
+            }
+
+            return res.status(200).json(recipeWithLiked)
+        })
+        .catch(err => res.status(500).json(err.message));
 
 }
 
@@ -42,6 +68,88 @@ const update = (req, res) => {
     return Recipe.updateRecipe(req.params.id, req)
         .then(data => res.status(200).json(data))
         .catch(err => res.status(500).json("Failed to update recipe"));
+
+}
+
+const like = (req, res) => {
+
+    return Recipe.findById(req.params.id)
+        .then(recipe => {
+
+            if (!recipe) {
+                return res.status(404).json("Recipe not found!");
+            }
+
+            const query = { user: req.userId, recipe: recipe.id };
+
+            return Like.findOne(query)
+                .then(like => {
+
+                    if (!like) {
+                        const newLike = new Like(query);
+                        return newLike.save()
+                            .then(savedLike => {
+                                recipe.likes.push(savedLike._id);
+                                return recipe.save();
+                            })
+                            .then(savedRecipe => {
+
+                                const savedRecipeWithLiked = {
+                                    _id: savedRecipe._id,
+                                    name: savedRecipe.name,
+                                    duration: savedRecipe.duration,
+                                    images: savedRecipe.images,
+                                    user: savedRecipe.user,
+                                    likes: savedRecipe.likes,
+                                    created_at: savedRecipe.created_at,
+                                    __v: savedRecipe.__v,
+                                    liked: true
+                                }
+
+                                return res.status(200).json(savedRecipeWithLiked)
+                            });
+                    }
+
+                    return Like.findByIdAndRemove(like._id)
+                        .then(() => {
+
+                            const likeIndex = recipe.likes.indexOf(like._id);
+                            if (likeIndex > -1) {
+                                recipe.likes.splice(likeIndex, 1);
+                            }
+
+                            return recipe.save();
+                        })
+                        .then(savedRecipe => {
+
+                            const savedRecipeWithLiked = {
+                                _id: savedRecipe._id,
+                                name: savedRecipe.name,
+                                duration: savedRecipe.duration,
+                                images: savedRecipe.images,
+                                user: savedRecipe.user,
+                                likes: savedRecipe.likes,
+                                created_at: savedRecipe.created_at,
+                                __v: savedRecipe.__v,
+                                liked: false
+                            }
+
+                            return res.status(200).json(savedRecipeWithLiked)
+                        });
+
+
+                })
+                .catch(err => res.status(500).json({
+                    message: err
+                }))
+
+        })
+        .catch(err => {
+            // should add some logger in here
+            return res.status(500).json({
+                message: err
+            })
+        })
 
 }
 
@@ -62,7 +170,7 @@ const imageUpload = (req, res) => {
             });
         } else {
 
-            
+
             let files = req.files.map(file => file.filename);
             console.log("REQUEST: " + JSON.stringify(files))
 
@@ -93,6 +201,7 @@ module.exports.mine = mine;
 module.exports.show = show;
 module.exports.create = create;
 module.exports.update = update;
+module.exports.like = like;
 module.exports.destroy = destroy;
 module.exports.imageUpload = imageUpload;
 module.exports.imageRemove = imageRemove;

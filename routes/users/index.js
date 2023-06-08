@@ -1,5 +1,6 @@
-const { authorizeJwt } = require("../../middleware");
-const controller = require("../../controllers/UserController");
+const { authorizeJwt, formatErrors } = require("../../middleware");
+const { UserValidator } = require("../validators");
+const { UserController } = require("../../controllers");
 
 module.exports = function (app) {
     app.use(function (req, res, next) {
@@ -10,13 +11,6 @@ module.exports = function (app) {
         next();
     });
 
-    app.get("/test/all", controller.allAccess);
+    app.patch("/user", [authorizeJwt.verifyToken, UserValidator.username, formatErrors.format], UserController.update);
 
-    app.get("/test/user", [authorizeJwt.verifyToken], controller.userBoard);
-
-    app.get(
-        "/test/admin",
-        [authorizeJwt.verifyToken, authorizeJwt.isAdmin],
-        controller.adminBoard
-    );
 };

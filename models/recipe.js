@@ -23,6 +23,14 @@ const RecipeSchema = new mongoose.Schema({
         type: mongoose.Schema.Types.ObjectId,
         ref: "User",
     },
+    likes: [{
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Like'
+    }],
+    created_at: {
+        type: Date,
+        default: Date.now
+    }
 });
 
 const removeImages = (images) => {
@@ -33,7 +41,7 @@ const setSearchField = (field) => {
     return { $regex: '.*' + field + '.*', $options: 'i' }
 }
 
-const Recipe = mongoose.model("Recipes", RecipeSchema);
+const Recipe = mongoose.model("Recipe", RecipeSchema);
 module.exports = Recipe;
 
 module.exports.getRecipes = function (req) {
@@ -44,7 +52,7 @@ module.exports.getRecipes = function (req) {
         query.name = setSearchField(req.query.name);
     }
 
-    return Recipe.find(query)
+    return Recipe.find(query).populate('user')
         .sort({ name: 'ascending' });
 
 }
@@ -59,18 +67,18 @@ module.exports.getMyRecipes = function (req) {
 
     query.user = req.userId;
 
-    return Recipe.find(query)
+    return Recipe.find(query).populate(['user', 'likes'])
         .sort({ name: 'ascending' });
 
 }
 
 module.exports.getRecipe = function (id) {
 
-    return Recipe.find({ "_id": id })
+    return Recipe.findOne({ "_id": id }).populate(['user', 'likes'])
 
 }
 
-module.exports.addRecipe = function (req) {
+module.exports.addRecipe = async function (req) {
 
     let recipe = new Recipe({
         name: req.body.name,
@@ -79,7 +87,10 @@ module.exports.addRecipe = function (req) {
         images: []
     });
 
-    return recipe.save()
+    await recipe.save()
+    await recipe.populate('user')
+
+    return recipe;
 }
 
 module.exports.updateRecipe = function (id, req) {
@@ -87,7 +98,7 @@ module.exports.updateRecipe = function (id, req) {
     return Recipe.findByIdAndUpdate(id, {
         "name": req.body.name,
         "duration": req.body.duration
-    }, { new: true })
+    }, { new: true }).populate('user')
 
 }
 
