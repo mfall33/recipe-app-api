@@ -33,6 +33,7 @@ const RecipeSchema = new mongoose.Schema({
     }
 });
 
+
 const removeImages = (images) => {
     images.map(image => fs.rmSync(`${IMAGE_FOLDER}${image}`))
 }
@@ -41,7 +42,13 @@ const setSearchField = (field) => {
     return { $regex: '.*' + field + '.*', $options: 'i' }
 }
 
+RecipeSchema.pre('remove', function (next) {
+    console.log(33)
+    next();
+})
+
 const Recipe = mongoose.model("Recipe", RecipeSchema);
+
 module.exports = Recipe;
 
 module.exports.getRecipes = function (req) {
@@ -52,7 +59,7 @@ module.exports.getRecipes = function (req) {
         query.name = setSearchField(req.query.name);
     }
 
-    return Recipe.find(query).populate('user')
+    return Recipe.find(query).populate(['user', 'likes'])
         .sort({ name: 'ascending' });
 
 }
@@ -98,7 +105,7 @@ module.exports.updateRecipe = function (id, req) {
     return Recipe.findByIdAndUpdate(id, {
         "name": req.body.name,
         "duration": req.body.duration
-    }, { new: true }).populate('user')
+    }, { new: true }).populate(['user', 'likes'])
 
 }
 

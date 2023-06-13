@@ -6,70 +6,122 @@ const Like = require("../models/like");
 const { ImageUpload } = require("../helpers");
 const { IMAGE_FOLDER } = process.env;
 
-const index = (req, res) => {
+/* refactor all controllers over to async/await with try catch blocks
+ to stop blocking the application with synchronous code.. */
 
-    return Recipe.getRecipes(req).populate('likes')
-        .then(recipes => {
+const index = async (req, res) => {
 
-            let filteredRecipes = []
+    try {
 
-            recipes.map(recipe => {
-                const liked = recipe.likes.some(like => {
+        let recipes = await Recipe.getRecipes(req).populate('likes');
 
-                    console.log(String(like.user) + ' === ' + req.userId)
-                    return String(like.user) === req.userId
-                });
-                const recipeWithLiked = {
-                    ...recipe.toObject(),
-                    liked: liked
-                };
-                filteredRecipes.push(recipeWithLiked)
-            })
+        let filteredRecipes = recipes.map(recipe => {
+            const liked = recipe.likes.some(like => {
+                return String(like.user) === req.userId;
+            });
 
-            return res.json(filteredRecipes);
+            return {
+                ...recipe.toObject(),
+                liked: liked
+            };
+        });
 
-        })
-        .catch(err => res.status(500).json(err));
+        return res.json(filteredRecipes);
 
-}
+    } catch (err) {
 
-const mine = (req, res) => {
+        return res.status(500).json(err);
 
-    return Recipe.getMyRecipes(req)
-        .then(recipes => res.json(recipes))
-        .catch(err => res.status(500).json(err));
+    }
 
 }
 
-const show = (req, res) => {
+const mine = async (req, res) => {
 
-    return Recipe.getRecipe(req.params.id)
-        .then(recipe => {
-            if (!recipe) {
-                return res.status(404).json({ message: "Recipe not found" })
-            }
+    try {
+        const recipes = await Recipe.getMyRecipes(req);
 
-            return res.status(200).json(recipeWithLiked)
-        })
-        .catch(err => res.status(500).json(err.message));
-
-}
-
-const create = (req, res) => {
-
-    return Recipe.addRecipe(req)
-        .then(data => res.status(200).json(data))
-        .catch(err => res.status(500).json("Failed to store recipe: " + err));
+        return res.json(recipes);
+    }
+    catch (err) {
+        return res.status(500).json(err)
+    }
 
 }
 
-const update = (req, res) => {
+const liked = async (req, res) => {
 
-    return Recipe.updateRecipe(req.params.id, req)
-        .then(data => res.status(200).json(data))
-        .catch(err => res.status(500).json("Failed to update recipe"));
+    try {
+
+        const recipes = await Recipe.getRecipes(req);
+
+        const likedRecipes = recipes.filter(recipe =>
+            recipe.likes.some(like => String(like.user) === req.userId)
+        );
+
+        return res.json(likedRecipes);
+
+    } catch (err) {
+
+        return res.status(500).json(err);
+
+    }
+
+};
+
+const show = async (req, res) => {
+
+    try {
+        const recipe = await Recipe.getRecipe(req.params.id);
+
+        if (!recipe) {
+            return res.status(404).json({ message: "Recipe not found" });
+        }
+
+        return res.status(200).json(recipe);
+    }
+    catch (err) {
+        return res.status(500).json(err.message)
+    }
 
 }
+
+const create = async (req, res) => {
+
+    try {
+
+        const recipe = await Recipe.addRecipe(req);
+
+        return res.status(200).json(recipe);
+
+    }
+    catch (err) {
+
+        return res.status(500).json({ message: "Failed to create recipe" });
+
+    }
+
+}
+
+const update = async (req, res) => {
+
+    try {
+
+        const recipe = await Recipe.updateRecipe(req.params.id, req);
+
+        const liked = recipe.likes.some(like => String(like.user) === req.userId);
+
+        const recipeWithLiked = formatRecipe(recipe, liked);
+
+        return res.status(200).json(recipeWithLiked);
+
+    } catch (err) {
+
+        return res.status(500).json({ message: "Failed to update recipe" });
+
+    }
+
+};
 
 const like = (req, res) => {
 
@@ -77,7 +129,7 @@ const like = (req, res) => {
         .then(recipe => {
 
             if (!recipe) {
-                return res.status(404).json("Recipe not found!");
+                return res.status(404).json({ message: "Recipe not found!" });
             }
 
             const query = { user: req.userId, recipe: recipe.id };
@@ -94,17 +146,9 @@ const like = (req, res) => {
                             })
                             .then(savedRecipe => {
 
-                                const savedRecipeWithLiked = {
-                                    _id: savedRecipe._id,
-                                    name: savedRecipe.name,
-                                    duration: savedRecipe.duration,
-                                    images: savedRecipe.images,
-                                    user: savedRecipe.user,
-                                    likes: savedRecipe.likes,
-                                    created_at: savedRecipe.created_at,
-                                    __v: savedRecipe.__v,
-                                    liked: true
-                                }
+                                formatRecipe(savedRecipe, true)
+
+                                const savedRecipeWithLiked = formatRecipe(savedRecipe, true);
 
                                 return res.status(200).json(savedRecipeWithLiked)
                             });
@@ -122,17 +166,7 @@ const like = (req, res) => {
                         })
                         .then(savedRecipe => {
 
-                            const savedRecipeWithLiked = {
-                                _id: savedRecipe._id,
-                                name: savedRecipe.name,
-                                duration: savedRecipe.duration,
-                                images: savedRecipe.images,
-                                user: savedRecipe.user,
-                                likes: savedRecipe.likes,
-                                created_at: savedRecipe.created_at,
-                                __v: savedRecipe.__v,
-                                liked: false
-                            }
+                            const savedRecipeWithLiked = formatRecipe(savedRecipe, false);
 
                             return res.status(200).json(savedRecipeWithLiked)
                         });
@@ -153,26 +187,33 @@ const like = (req, res) => {
 
 }
 
-const destroy = (req, res) => {
+const destroy = async (req, res) => {
 
-    return Recipe.removeRecipe(req.params.id)
-        .then(data => res.status(200).json("Recipe destroyed successfully"))
-        .catch(err => res.status(500).json(err));
+    try {
 
-}
+        await Recipe.removeRecipe(req.params.id);
+
+        return res.status(200).json("Recipe destroyed successfully");
+
+    } catch (err) {
+
+        return res.status(500).json({ message: "Failed to remove recipe!" });
+
+    }
+
+};
 
 const imageUpload = (req, res) => {
 
     return ImageUpload(req, res, (err) => {
+
         if (err) {
             return res.status(500).send({
                 error: err.message
             });
         } else {
 
-
             let files = req.files.map(file => file.filename);
-            console.log("REQUEST: " + JSON.stringify(files))
 
             return Recipe.addImages(req.params.id, files)
                 .then(data => res.status(200).json(data))
@@ -196,8 +237,39 @@ const imageRemove = (req, res) => {
 
 }
 
+// const imageRemove = async (req, res) => {
+
+//     try {
+
+//         const data = await Recipe.removeImage(req.params.id, req.body.image);
+
+//         await fs.unlink(`${IMAGE_FOLDER}${req.body.image}`);
+
+//         return res.status(200).json(data);
+
+//     } catch (err) {
+//         return res.status(500).json("Failed to remove image");
+//     }
+
+// };
+
+const formatRecipe = (recipe, liked) => {
+    return {
+        _id: recipe._id,
+        name: recipe.name,
+        duration: recipe.duration,
+        images: recipe.images,
+        user: recipe.user,
+        likes: recipe.likes,
+        created_at: recipe.created_at,
+        __v: recipe.__v,
+        liked: liked
+    }
+}
+
 module.exports.index = index;
 module.exports.mine = mine;
+module.exports.liked = liked;
 module.exports.show = show;
 module.exports.create = create;
 module.exports.update = update;
