@@ -6,6 +6,7 @@ module.exports = (req, res, next) => {
         .populate('user')
         .then((recipe) => {
 
+            console.log(55)
             if (!recipe) {
                 return res.json({ message: 'Recipe not found!' })
             }
@@ -14,8 +15,13 @@ module.exports = (req, res, next) => {
                 return res.status(401).json({ message: 'Unauthorized' })
             }
 
+            next();
         })
+        .catch((err) => {
+            // Handle any errors that occurred during the Promise chain
+            console.error(err);
+            res.status(500).json({ message: 'Internal Server Error' });
+        });
 
-    next();
 
 }

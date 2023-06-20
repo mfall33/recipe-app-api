@@ -27,8 +27,8 @@ exports.verifyToken = (req, res, next) => {
         if (err) {
             return catchError(err, res);
         }
-        console.log("from middleware: " + decoded.id);
         req.userId = decoded.id;
+        
         next();
     });
 };
@@ -45,8 +45,8 @@ exports.isAdmin = (req, res, next) => {
                         }
                     }
 
-                    res.status(403).send({ message: "Requires Admin Role!" });
-                    return;
+                    return res.status(403).send({ message: "Requires Admin Role!" });
+                    
                 })
                 .catch(err => res.status(500).send({ message: err }));
 

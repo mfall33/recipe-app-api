@@ -6,16 +6,13 @@ const Like = require("../models/like");
 const { ImageUpload } = require("../helpers");
 const { IMAGE_FOLDER } = process.env;
 
-/* refactor all controllers over to async/await with try catch blocks
- to stop blocking the application with synchronous code.. */
-
 const index = async (req, res) => {
 
     try {
 
-        let recipes = await Recipe.getRecipes(req).populate('likes');
+        const recipes = await Recipe.getRecipes(req).populate('likes');
 
-        let filteredRecipes = recipes.map(recipe => {
+        const recipesWithLiked = recipes.map(recipe => {
             const liked = recipe.likes.some(like => {
                 return String(like.user) === req.userId;
             });
@@ -26,7 +23,7 @@ const index = async (req, res) => {
             };
         });
 
-        return res.json(filteredRecipes);
+        return res.json(recipesWithLiked);
 
     } catch (err) {
 
@@ -180,6 +177,7 @@ const like = (req, res) => {
         })
         .catch(err => {
             // should add some logger in here
+            console.log(JSON.stringify(err, null, 2))
             return res.status(500).json({
                 message: err
             })
@@ -236,22 +234,6 @@ const imageRemove = (req, res) => {
         .catch(err => res.status(500).json("Failed to remove image"));
 
 }
-
-// const imageRemove = async (req, res) => {
-
-//     try {
-
-//         const data = await Recipe.removeImage(req.params.id, req.body.image);
-
-//         await fs.unlink(`${IMAGE_FOLDER}${req.body.image}`);
-
-//         return res.status(200).json(data);
-
-//     } catch (err) {
-//         return res.status(500).json("Failed to remove image");
-//     }
-
-// };
 
 const formatRecipe = (recipe, liked) => {
     return {

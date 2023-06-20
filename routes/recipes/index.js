@@ -17,7 +17,7 @@ module.exports = function (app) {
     app.post('/recipes/:id/image', [authorizeJwt.verifyToken, ensureRecipeOwner], RecipeController.imageUpload);
     app.delete('/recipes/:id/image', [authorizeJwt.verifyToken, ensureRecipeOwner], RecipeController.imageRemove);
     app.put('/recipes/:id', [authorizeJwt.verifyToken, RecipeValidator.update, formatErrors.format, ensureRecipeOwner], RecipeController.update);
-    app.put('/recipes/:id/like', [authorizeJwt.verifyToken, ensureRecipeOwner], RecipeController.like);
+    app.put('/recipes/:id/like', [authorizeJwt.verifyToken], RecipeController.like);
     app.delete('/recipes/:id', [authorizeJwt.verifyToken, ensureRecipeOwner], RecipeController.destroy);
 
 }

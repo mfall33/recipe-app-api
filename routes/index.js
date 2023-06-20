@@ -11,6 +11,9 @@ require('../routes/auth')(router);
 // recipes
 require('../routes/recipes')(router);
 
+// recipes
+require('../routes/collections')(router);
+
 // users
 require('../routes/users')(router);
 

@@ -42,10 +42,10 @@ const setSearchField = (field) => {
     return { $regex: '.*' + field + '.*', $options: 'i' }
 }
 
-RecipeSchema.pre('remove', function (next) {
-    console.log(33)
-    next();
-})
+// RecipeSchema.pre('remove', function (next) {
+//     console.log(33)
+//     next();
+// })
 
 const Recipe = mongoose.model("Recipe", RecipeSchema);
 

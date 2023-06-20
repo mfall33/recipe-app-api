@@ -5,5 +5,6 @@ const { required } = messages;
 module.exports.username = [
     body('username')
         .notEmpty().withMessage(required('Username'))
-        .custom((value) => !/\s/.test(value)).withMessage('Username cannot contain spaces'),
+        .custom((value) => !/\s/.test(value)).withMessage('Username cannot contain spaces')
+        .custom(val => val.trim().length > 0).withMessage(required('Username')),
 ];
