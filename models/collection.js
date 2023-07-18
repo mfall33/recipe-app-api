@@ -77,8 +77,11 @@ module.exports.addRecipeToCollection = async (req) => {
         throw new Error("Recipe already exists in Collection!")
     }
 
+    console.log("BODY: " + req.body.recipe)
+
     const recipe = await Recipe.findById(req.body.recipe);
 
+    console.log("Recipe: " + JSON.stringify(recipe));
 
     collection.recipes.push(recipe.id);
 

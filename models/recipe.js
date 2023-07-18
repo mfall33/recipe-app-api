@@ -35,17 +35,49 @@ const RecipeSchema = new mongoose.Schema({
 
 
 const removeImages = (images) => {
-    images.map(image => fs.rmSync(`${IMAGE_FOLDER}${image}`))
+    images.map(image => {
+        try {
+            // need to think.. is there a need to do this syncrhronously
+            fs.rmSync(`${IMAGE_FOLDER}${image}`);
+        } catch (e) {
+            // console.log({ e })
+        }
+
+    })
 }
 
 const setSearchField = (field) => {
     return { $regex: '.*' + field + '.*', $options: 'i' }
 }
 
-// RecipeSchema.pre('remove', function (next) {
-//     console.log(33)
-//     next();
-// })
+RecipeSchema.pre('findOneAndDelete', async function (next) {
+
+    const id = this._conditions._id;
+
+    const recipeToDelete = await Recipe.findOne({ _id: id });
+
+    // Import Collection here to avoid circular dependency
+    const Collection = require('./collection');
+    const Like = require('./like');
+
+    await Like.deleteMany({ recipe: id })
+
+    // find all collections with deleted recipe id
+    const collectionsToUpdate = await Collection.find({ recipes: id });
+
+    const updatePromises = collectionsToUpdate.map(async (collection) => {
+        const updatedRecipes = collection.recipes.filter(recipeId => recipeId.toString() !== id);
+        collection.recipes = updatedRecipes;
+        await collection.save();
+    });
+
+    // Wait for all update operations to finish before proceeding
+    await Promise.all(updatePromises);
+
+    removeImages(recipeToDelete.images)
+
+    next();
+})
 
 const Recipe = mongoose.model("Recipe", RecipeSchema);
 
@@ -112,7 +144,6 @@ module.exports.updateRecipe = function (id, req) {
 module.exports.removeRecipe = async function (id) {
 
     let recipe = await Recipe.findById(id);
-    removeImages(recipe.images);
 
     return Recipe.findByIdAndDelete(id);
 

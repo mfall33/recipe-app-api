@@ -5,8 +5,7 @@ module.exports = (req, res, next) => {
     Recipe.findById(req.params.id)
         .populate('user')
         .then((recipe) => {
-
-            console.log(55)
+            
             if (!recipe) {
                 return res.json({ message: 'Recipe not found!' })
             }

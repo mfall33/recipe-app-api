@@ -56,6 +56,8 @@ exports.signup = async (req, res) => {
 
 exports.signin = async (req, res) => {
 
+    console.log("Login")
+
     // using the regex below for insensitive case querying
     User.findOne({
         $or: [
